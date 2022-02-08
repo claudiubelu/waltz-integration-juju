@@ -9,3 +9,11 @@ bases:
     run-on:
     - name: "ubuntu"
       channel: "20.04"
+
+parts:
+  charm:
+    build-packages:
+      # NOTE(claudiub): required for installing psycopg2 (postgresql-related)
+      - gcc
+      - python3-dev
+      - libpq-dev

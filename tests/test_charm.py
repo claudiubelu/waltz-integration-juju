@@ -24,7 +24,8 @@ class TestCharm(unittest.TestCase):
 
         return mock_patched
 
-    def test_waltz_pebble_ready(self):
+    @mock.patch("psycopg2.connect")
+    def test_waltz_pebble_ready(self, mock_connect):
         # Check the initial Pebble plan is empty
         initial_plan = self.harness.get_container_pebble_plan("waltz")
         self.assertEqual(initial_plan.to_yaml(), "{}\n")
@@ -86,7 +87,8 @@ class TestCharm(unittest.TestCase):
         self.harness.charm.on.waltz_pebble_ready.emit(container)
         mock_restart.assert_not_called()
 
-    def test_config_changed(self):
+    @mock.patch("psycopg2.connect")
+    def test_config_changed(self, mock_connect):
         self.harness.begin_with_initial_hooks()
         self.assertIsInstance(self.harness.model.unit.status, model.BlockedStatus)
 
@@ -94,6 +96,31 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"db-port": 9999})
         self.assertIsInstance(self.harness.model.unit.status, model.BlockedStatus)
 
-        # Update the host, expect it to become Active.
-        self.harness.update_config({"db-host": "foo.lish"})
+        # Update the host but fail to connect to postgresql. The status should be Blocked.
+        mock_connect.side_effect = Exception("expected exception.")
+        expected_host = "reach-you-cannot"
+        self.harness.update_config({"db-host": expected_host})
+
+        self.assertIsInstance(self.harness.model.unit.status, model.BlockedStatus)
+        mock_connect.assert_called_once_with(
+            host=expected_host,
+            port=9999,
+            dbname=self.harness.charm.config["db-name"],
+            user=self.harness.charm.config["db-username"],
+            password=self.harness.charm.config["db-password"],
+        )
+
+        # Update the host again, expect it to become Active.
+        mock_connect.side_effect = None
+        expected_host = "foo.lish"
+        self.harness.update_config({"db-host": expected_host})
+
         self.assertEqual(self.harness.model.unit.status, model.ActiveStatus())
+        mock_connect.assert_called_with(
+            host=expected_host,
+            port=9999,
+            dbname=self.harness.charm.config["db-name"],
+            user=self.harness.charm.config["db-username"],
+            password=self.harness.charm.config["db-password"],
+        )
+        mock_connect.return_value.close.assert_called()

@@ -6,6 +6,7 @@
 
 import logging
 
+import psycopg2
 from ops import charm, main, model, pebble
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,10 @@ class WaltzOperatorCharm(charm.CharmBase):
             self.unit.status = model.BlockedStatus("Waiting for database configuration.")
             return
 
+        if not self._check_database_config(db_config):
+            self.unit.status = model.BlockedStatus("Could not connect to dabatase.")
+            return
+
         # If not provided with a container, get one.
         container = container or self.unit.get_container("waltz")
 
@@ -92,9 +97,19 @@ class WaltzOperatorCharm(charm.CharmBase):
             "host": host,
             "port": port,
             "dbname": dbname,
-            "username": username,
+            "user": username,
             "password": password,
         }
+
+    def _check_database_config(self, db_config):
+        try:
+            conn = psycopg2.connect(**db_config)
+            conn.close()
+        except Exception as ex:
+            logger.info("Could not connect to postgresql database: %v", ex)
+            return False
+
+        return True
 
     def _generate_workload_pebble_layer(self, db_config):
         """Generates the Waltz layer for Pebble.
@@ -116,7 +131,7 @@ class WaltzOperatorCharm(charm.CharmBase):
                         "DB_HOST": db_config["host"],
                         "DB_PORT": db_config["port"],
                         "DB_NAME": db_config["dbname"],
-                        "DB_USER": db_config["username"],
+                        "DB_USER": db_config["user"],
                         "DB_PASSWORD": db_config["password"],
                         "DB_SCHEME": "waltz",
                         "WALTZ_FROM_EMAIL": "help@finos.org",
