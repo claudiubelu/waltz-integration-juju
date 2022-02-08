@@ -7,12 +7,23 @@ import unittest
 from unittest import mock
 
 from ops import model, testing
+from pgsql import client
 
 import charm
 
 
 class TestCharm(unittest.TestCase):
     def setUp(self):
+        # Mock pgsql's leader data getter and setter.
+        self.leadership_data = {}
+        patcher = mock.patch.multiple(
+            client,
+            _get_pgsql_leader_data=self.leadership_data.copy,
+            _set_pgsql_leader_data=self.leadership_data.update,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
         self.harness = testing.Harness(charm.WaltzOperatorCharm)
         self.addCleanup(self.harness.cleanup)
 

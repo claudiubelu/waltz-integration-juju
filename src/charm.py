@@ -6,9 +6,11 @@
 
 import logging
 
-from ops import charm, main, model, pebble
+from ops import charm, framework, lib, main, model, pebble
 
 logger = logging.getLogger(__name__)
+
+pgsql = lib.use("pgsql", 1, "postgresql-charmers@lists.launchpad.net")
 
 
 class WaltzOperatorCharm(charm.CharmBase):
@@ -18,12 +20,65 @@ class WaltzOperatorCharm(charm.CharmBase):
     will be used by FINOS Waltz.
     """
 
+    _state = framework.StoredState()
+
     def __init__(self, *args):
         super().__init__(*args)
+
+        self._init_state()
+
+        # PostgreSQL relation hooks:
+        self.db = pgsql.PostgreSQLClient(self, "db")
+        self.framework.observe(
+            self.db.on.database_relation_joined, self._on_database_relation_joined)
+        self.framework.observe(
+            self.db.on.database_relation_broken, self._on_database_relation_broken)
+        self.framework.observe(self.db.on.master_changed, self._on_master_changed)
 
         # General hooks:
         self.framework.observe(self.on.waltz_pebble_ready, self._on_waltz_pebble_ready)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
+
+    def _init_state(self):
+        self._state.set_default(db_host=None)
+        self._state.set_default(db_port=None)
+        self._state.set_default(db_name=None)
+        self._state.set_default(db_username=None)
+        self._state.set_default(db_password=None)
+
+    def _on_database_relation_joined(self, event: pgsql.DatabaseRelationJoinedEvent):
+        # Request a database with the configured db-name from the joined PostgreSQL server charm.
+        event.database = self.config["db-name"]
+        # Request the citext extension to be installed.
+        # event.extensions = ["citext"]
+
+    def _on_database_relation_broken(self, event: pgsql.DatabaseRelationBrokenEvent):
+        # The relation with the PostgreSQL server charm has been broken. We need to disconnect
+        # Waltz from it, and reconfigure it to use the configured database instead, if any.
+        self._state.db_conn_str = None
+        self._state.db_uri = None
+        self._rebuild_waltz_pebble_layer(event)
+
+    def _on_master_changed(self, event: pgsql.MasterChangedEvent):
+        # Check if the requested database has been provided to us.
+        if event.database != self.config["db-name"]:
+            return
+
+        if event.master is None:
+            self._state.db_host = None
+            self._state.db_port = None
+            self._state.db_name = None
+            self._state.db_username = None
+            self._state.db_password = None
+        else:
+            self._state.db_host = event.master.host
+            self._state.db_port = event.master.port
+            self._state.db_name = event.master.dbname
+            self._state.db_username = event.master.user
+            self._state.db_password = event.master.password
+
+        # Update Waltz with the new database connection details.
+        self._rebuild_waltz_pebble_layer(event)
 
     def _on_waltz_pebble_ready(self, event):
         """Handles the Pebble Ready event."""
@@ -78,6 +133,18 @@ class WaltzOperatorCharm(charm.CharmBase):
         Returns the configured database connection details as a dictionary. If they are
         missing, an empty dictionary is returned instead.
         """
+        # Check if we're related to a PostgreSQL Server charm. If so, return the connection
+        # details to it.
+        if self._state.db_host:
+            return {
+                "host": self._state.db_host,
+                "port": self._state.db_port,
+                "dbname": self._state.db_name,
+                "username": self._state.db_username,
+                "password": self._state.db_password,
+            }
+
+        # We're not related to a PostgreSQL Server charm. Use the existing configuration.
         host = self.config["db-host"]
         port = self.config["db-port"]
         dbname = self.config["db-name"]
