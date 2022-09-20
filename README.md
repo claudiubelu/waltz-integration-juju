@@ -1,71 +1,54 @@
-[![FINOS - Incubating](https://cdn.jsdelivr.net/gh/finos/contrib-toolbox@master/images/badge-incubating.svg)](https://finosfoundation.atlassian.net/wiki/display/FINOS/Incubating)
-# Charmed &nbsp;<img src="https://user-images.githubusercontent.com/5586487/152134303-f3a34f04-d459-4581-87df-cbd0d8e6a29f.png" alt="FINOS Waltz" width="150"/>
+[![FINOS - Incubating](https://cdn.jsdelivr.net/gh/finos/contrib-toolbox@master/images/badge-incubating.svg)](https://finosfoundation.atlassian.net/wiki/display/FINOS/Incubating) 
 
-> 💡 If you would like to quickly test Waltz in your laptop, check this from zero to hero [local deployment guide](TODO) using MicroK8s. 
+[![Get it from the Charmhub](https://charmhub.io/finos-waltz-k8s/badge.svg)](https://charmhub.io/finos-waltz-k8s)
 
-This project aims to provide an enterprise-grade deployment and day-2 operations option for FINOS Waltz using Juju and Charmed Operators.
+# A Charmed Operator for Waltz
 
-One command - `juju deploy finos-waltz-bundle` - deploys all you need to run Waltz on your local or production enviroment. 
+This is the repository for the Waltz charmed operator, also known as "charm". This can be deployed individually or as a [bundle](https://github.com/finos/waltz-juju-bundle). 
 
-This project is 100% open source and questions from beginners are always welcomed!
+> 💡If you are evaluating Waltz, you should use the whole [bundle](https://github.com/finos/waltz-juju-bundle) instead of this single charm. You should only deploy this charmed operator by itself if you already have a PostgreSQL database.
 
-## Juju, Charms and Waltz
+> 💡 You can find more information about Charmed Operators and Charmed Waltz in the [bundle](https://github.com/finos/waltz-juju-bundle) repository.
 
-The [Juju Charmed Operator Lifecycle Manager (OLM)](https://juju.is/docs/olm) is a hybrid-cloud application management and orchestration system for installation and day 2 operations. It helps deploy, configure, scale, integrate, maintain, and manage Kubernetes native, container-native and VM-native applications—and the relations between them.
+## Deploying this Charmed Operator
 
-A charmed operator (also known, more simply, as a “charm”) encapsulates a single application and all the code and know-how it takes to operate it, such as how to combine and work with other related applications or how to upgrade it. Charms are programmed to understand a single application, its operations, and its potential to communicate or integrate with other applications. A charm defines and enables the channels by which applications connect.
+If you don’t have a Juju model, you can follow [this guide](https://github.com/finos/waltz-juju-bundle/blob/main/docs/guides/LocalDeployment.md) until the point you have one. You can then deploy this single charmed operator (instead of the whole bundle) running:
 
-In a nutshell [Waltz](https://github.com/finos/waltz) allows you to visualize and define your organisation's technology landscape. Think of it like a structured Wiki for your architecture.
-
-### Cloud vendor agnostic
-
-The instructions cover the deployment of FINOS Waltz charmed operators on a host PC along with a locally deployed Gitlab instance. However these charms can be deployed on any cloud and should be able to use any Gitlab instance with requisite permissions.
-
-### Multi-hybrid cloud
-
-The applications necessary to run Waltz were deployed as a _bundle_ in the same cloud. [Juju](https://juju.is/) allows, however, for you to deploy each application on a different cloud and then integrate the stack across your estate.
-
-### Offline installation
-
-We assume your host had a functioning Internet connection. However it is also possible to [deploy charmed operators offline](https://juju.is/docs/olm/working-offline).
-
-## Installation
-To get started, you can checkout the [local run documention](docs/LocalDeployment.md), which will walk you through and explain all the different deployment steps to run a local Waltz instance, and will point you to docs for alternative deployments, such as clouds, barebone installations and other.
-
-## Usage
-
-The Waltz Operator charm can be deployed by running:
-
-```bash
+```
 juju deploy finos-waltz-k8s --channel=edge
+``` 
+
+### Connecting to PostgreSQL
+
+To connect to your already existing PostgreSQL database, you can run:
 ```
-
-The Waltz Operator charm will initially be in a Blocked state, it expects a PostgreSQL relation to be set:
-
-```
-juju deploy postgresql-k8s
-juju relate finos-waltz-k8s:db postgresql-k8s:db
-```
-
-Alternatively, it can be configured with an external PostgreSQL database connection details:
-
-```bash
 juju config finos-waltz-k8s db-host="<db-host>" db-port="<db-port>" db-name="<db-name>" db-username="<db-username>" db-password="<db-password>"
 ```
 
-For an in-depth guide on how to deploy Waltz in a local environment from scratch, see the [Local deployment guide](doc/LocalDeployment.md).
+If you do not have an existing PostgreSQL database, you can deploy a PostgreSQL database charm and relate it to the FINOS Waltz charm:
 
-## Relations
-
-TBA
+```
+juju deploy postgresql-k8s
+juju relate postgresql-k8s:db finos-waltz-k8s:db
+```
 
 ## OCI Images
 
 This charm requires the Waltz docker image: ``ghcr.io/finos/waltz``.
 
-## Charm releases
+## FINOS Waltz Charm and Bundle release automation process
 
-This repository is configured to automatically build and publish a new Charm revision after a Pull Request merges. For more information, see [here](docs/CharmPublishing.md).
+This repository is configured to automatically build and publish a new Charm revision after a Pull Request merges. The new charm revisions will be released on the ``latest/edge`` channel with the latest associated Waltz image revision. For more information, see [here](docs/CharmPublishing.md).
+
+The [waltz-juju-bundle](https://github.com/finos/waltz-juju-bundle) repository has a GitHub action configured to check periodically if there is a new [official Waltz release](https://github.com/finos/waltz/pkgs/container/waltz). If there is a new release, the GitHub action will do the following steps:
+
+- upload the new Waltz image versions file into Charmhub.
+- create a new release for the FINOS Waltz charm on the ``latest/edge`` and ``release-version/edge`` channels.
+- create a new ``release-release-version`` branch in the [waltz-juju-bundle](https://github.com/finos/waltz-juju-bundle) repository.
+- update the ``bundle.yaml`` file, having the Waltz charm use the ``release-version/edge`` channel and create a commit.
+- upload the new ``bundle.yaml`` file into Charmhub on the ``release-version/edge`` track.
+
+Each repository has included in its ``README.md`` file and docs information about how their GitHub actions have been configured and what repositories secrets they require. In summary, they all require a Charmhub authentication token that has the permission to upload resources for the respective charms.
 
 ## Help and Support
 
@@ -81,7 +64,7 @@ TODO
 
 Visit Waltz [Contribution Guide](https://github.com/finos/waltz/blob/master/CONTRIBUTING.md) to learn how to contribute to Waltz.
 
-Please see the [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this charm following best practice guidelines, and `DEVELOPMENT.md` for developer guidance.
+Please see the [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this charm following best practice guidelines, and the [Developer Guide](docs/DeveloperGuide.md) for developer guidance.
 
 ## License
 

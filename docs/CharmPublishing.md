@@ -5,7 +5,13 @@ After a Pull Request merged, the ``Publish Charm`` [Github action](../.github/wo
 ```bash
 charmcraft login --export=secrets-waltz.auth --charm=finos-waltz-k8s \
       --permission=package-manage --permission=package-view-revisions \
-      --channel=edge --ttl=1576800
+      --channel=edge --ttl=7948800
 ```
 
-This token will have to be updated periodically since it has a certain time to live set.
+This token will have to be updated periodically since it has a certain time to live set. If the `charmcraft` process fails with the message "Provided credentials are no longer valid for Charmhub. Regenerate them and try again.", it means you have to export the secrets again by logging in to charmcraft using the instructions written above.
+
+By using the following `gh` command you can skip going through the repository settings to set the secret token:
+
+```bash
+gh -R finos/waltz-integration-juju secret set CHARMHUB_TOKEN < secrets-waltz.auth
+```

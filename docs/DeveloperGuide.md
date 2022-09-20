@@ -1,10 +1,10 @@
-# FINOS Waltz Charmed Operator developer guide
+# FINOS Waltz Charmed Operator developer's guide
 
 ## Prerequisites
 
 In order to start developing and contributing to the FINOS Waltz Charmed Operator, make sure you have an environment in which you can deploy it. If you do not have one, you can create a Microk8s environment.
 
-Here is a [Local Deployment](docs/LocalDeployment.md) guide that will get you set up with a proper environment in which you can develop and deploy charms in. The guide also contains information on how to install Juju, bootstrap a Controller, create a Juju model, and deploy the `postgresql-k8s` charm and relate it to the Waltz charm.
+Here is a [Local Deployment](https://github.com/finos/waltz-juju-bundle/blob/main/docs/guides/LocalDeployment.md) guide that will get you set up with a proper environment in which you can develop and deploy charms in. The guide also contains information on how to install Juju, bootstrap a Controller, create a Juju model, and deploy the `postgresql-k8s` charm and relate it to the Waltz charm.
 
 In addition to that, you will need to install Charmcraft, which we'll use to build the Charm. For more information on how to install Charmcraft, check the Charmcraft section of the [dev-setup](https://juju.is/docs/sdk/dev-setup)
 
@@ -69,4 +69,5 @@ tox -e fmt
 tox -e lint
 ```
 
-After the Pull Request was created and merged, the ``Publish Charm`` [Github action](.github/workflows/publish.yaml) will run, which will build the charm and publish it to Charmhub on the edge channel. You can read [here](docs/CharmPublishing.md) for more information about it.
+After the Pull Request was created and merged, the ``Publish Charm`` [Github action](../.github/workflows/publish.yaml) will run, which will build the charm and publish it to Charmhub on the edge channel. You can read [here](CharmPublishing.md) for more information about it.
+
